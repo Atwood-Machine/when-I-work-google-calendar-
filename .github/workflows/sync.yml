@@ -1,0 +1,47 @@
+name: Sync When I Work to Google Calendar
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create Google token file
+        run: echo '${{ secrets.GOOGLE_TOKEN_JSON }}' > token.json
+
+      - name: Run sync
+        env:
+          WIW_DEVELOPER_KEY: ${{ secrets.WIW_DEVELOPER_KEY }}
+          WIW_EMAIL: ${{ secrets.WIW_EMAIL }}
+          WIW_PASSWORD: ${{ secrets.WIW_PASSWORD }}
+          WIW_USER_ID: ${{ secrets.WIW_USER_ID }}
+          GOOGLE_CALENDAR_ID: ${{ secrets.GOOGLE_CALENDAR_ID }}
+        run: python src/main.py
+
+      - name: Commit updated sync state
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add sync_state.json
+          git diff --cached --quiet || git commit -m "Update sync state"
+          git push
